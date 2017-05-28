@@ -90,20 +90,25 @@ def relevants_documents():
     pass
     return relevants_resume
 
-organizes_querys()
-matrix_dt = load_object('objects/matrix.dt')
-matrix_tt = load_object('objects/matrix.tt')
-terms_dt = load_object('objects/terms.dt')
-for i in xrange(0,len(querys)):
-    query_token = tokenize_stopwords_stemmer(querys[i], stemmer)
-    terms = search_expanded(query_token.split(' '), terms_dt, matrix_tt)
-    documents_retrieval = retrieval(terms, matrix_dt)
-    documents_relevants = relevants_documents()[i+1]
-
-    precision = float(len(documents_retrieval.intersection(documents_relevants))) /  float(len(documents_retrieval))
-    recall = float(len(documents_retrieval.intersection(documents_relevants))) / float(len(documents_relevants))
-    print "Query: " + str(i+1)
-    print "Precision: " + str(round(precision, 2)*100)
-    print "Recall: " + str(round(recall, 2)*100)
-    print "############################################"
+def main():
+    #organizes_documents()
+    organizes_querys()
+    matrix_dt = load_object('objects/matrix.dt')
+    matrix_tt = load_object('objects/matrix.tt')
+    terms_dt = load_object('objects/terms.dt')
+    
+    for i in xrange(0,len(querys)):
+        query_token = tokenize_stopwords_stemmer(querys[i], stemmer)
+        terms = search_expanded(query_token.split(' '), terms_dt, matrix_tt)
+        documents_retrieval = retrieval(terms, matrix_dt)
+        documents_relevants = relevants_documents()[i+1]
+        precision = float(len(documents_retrieval.intersection(documents_relevants))) /  float(len(documents_retrieval))
+        recall = float(len(documents_retrieval.intersection(documents_relevants))) / float(len(documents_relevants))
+        print "Query: " + str(i+1)
+        print "Precision: " + str(round(precision, 2)*100)
+        print "Recall: " + str(round(recall, 2)*100)
+        print "############################################"
+        pass
     pass
+
+main()
