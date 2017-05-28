@@ -7,7 +7,8 @@ from nltk.stem.porter import PorterStemmer
 from sklearn.feature_extraction.text import CountVectorizer
 
 stemmer = PorterStemmer()
-query = 'the crystalline lens in vertebrates, including humans'
+querys = []
+expansion = 5
 text_trans = []
 
 def retrieval(terms,matrix_dt):
@@ -28,13 +29,21 @@ def tokenize_stopwords_stemmer(text, stemmer):
             pass
     return text_final
 
+def organizes_querys():
+    files = open('med/MED.QRY', 'r').read().split('.I')
+    for i in range(0,len(files)):
+        text = files[i].replace('.W', '')
+        text = text.replace(str(i), '')
+        if len(text) > 0:
+            querys.append(text)
+
 def organizes_documents():
-	files = open('med/MED.ALL', 'r').read().split('.I')
-	for i in range(0,len(files)):
-		text = files[i].replace('.W', '')
-		text = text.replace(str(i), '')
-		text_trans.append(tokenize_stopwords_stemmer(text.lower(), stemmer))
-	generate_matrix()
+    files = open('med/MED.ALL', 'r').read().split('.I')
+    for i in range(0,len(files)):
+        text = files[i].replace('.W', '')
+        text = text.replace(str(i), '')
+        text_trans.append(tokenize_stopwords_stemmer(text.lower(), stemmer))
+    generate_matrix()
 
 def save_object(obj, filename):
     with open('objects/'+filename, 'wb') as output:
@@ -59,17 +68,42 @@ def search_expanded(query, terms_dt, matrix_tt):
     for i in query:
         if i in terms_dt:
             key = terms_dt.index(i)
-            terms_recommended = np.sort(matrix_tt[key])[:, len(matrix_tt)-5:len(matrix_tt)]
+            terms_recommended = np.sort(matrix_tt[key])[:, len(matrix_tt)-expansion:len(matrix_tt)]
             for j in terms_recommended.tolist()[0]:
                 terms.append(matrix_tt[key, :].tolist()[0].index(j))
-                pass
+            pass
         pass
     pass
     return terms
 
+def relevants_documents():
+    relevants_resume = dict()
+    relevants = open('med/MED.REL', 'r').readlines()
+    for i in relevants:
+        line = np.array(i.split(' ')).tolist()
+        key = int(line[0])
+        if key in relevants_resume:
+            relevants_resume[key].append(int(line[2]))
+        else:
+            relevants_resume[key] = [int(line[2])]
+        pass
+    pass
+    return relevants_resume
+
+organizes_querys()
 matrix_dt = load_object('objects/matrix.dt')
 matrix_tt = load_object('objects/matrix.tt')
 terms_dt = load_object('objects/terms.dt')
-query_token = tokenize_stopwords_stemmer(query, stemmer)
-terms = search_expanded(query_token.split(' '), terms_dt, matrix_tt)
-print retrieval(terms, matrix_dt)
+for i in xrange(0,len(querys)):
+    query_token = tokenize_stopwords_stemmer(querys[i], stemmer)
+    terms = search_expanded(query_token.split(' '), terms_dt, matrix_tt)
+    documents_retrieval = retrieval(terms, matrix_dt)
+    documents_relevants = relevants_documents()[i+1]
+
+    precision = float(len(documents_retrieval.intersection(documents_relevants))) /  float(len(documents_retrieval))
+    recall = float(len(documents_retrieval.intersection(documents_relevants))) / float(len(documents_relevants))
+    print "Query: " + str(i+1)
+    print "Precision: " + str(round(precision, 2)*100)
+    print "Recall: " + str(round(recall, 2)*100)
+    print "############################################"
+    pass
