@@ -2,6 +2,6 @@
 
 Extended search in medline documents
 # Requirements
-NLTK
-Scikit learn
-Numpy
+* NLTK
+* Scikit learn
+* Numpy
