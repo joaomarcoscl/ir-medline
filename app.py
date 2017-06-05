@@ -2,26 +2,54 @@ import nltk
 import string
 import numpy as np
 import pickle
+import operator
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet as wn
 from nltk.stem.porter import PorterStemmer
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 stemmer = PorterStemmer()
 querys = []
-expansion = 5
+expansion = 0
 text_trans = []
 
-def retrieval(terms,matrix_dt):
+def retrieval(terms,matrix_dt, terms_dt, query):
     result_docs = []
     for term in terms:
-        result_docs = result_docs + np.where(matrix_dt[:,term]>0)[0].tolist()[0]
+        #result_docs = result_docs + np.where(matrix_dt[:,term]>0)[0].tolist()
+        sum_vector = np.sum(matrix_dt[:,term])
+        norm = dict()
+        for i in np.where(matrix_dt[:,term]>1)[0].tolist():
+            norm[i] = float(matrix_dt[i, term])/float(sum_vector)
+        norm_sort = sorted(norm.items(), key=operator.itemgetter(1),reverse=True)
+        sum_norm_sort = 0
+        for i in norm_sort:
+            sum_norm_sort = sum_norm_sort + i[1]
+            result_docs.append(i[0])
+            if sum_norm_sort >= 0.5:#float(len(query))/float(len(terms)):
+                break
+            pass
     return set(result_docs)
 
-def tokenize_stopwords_stemmer(text, stemmer):
+def retrieval2(terms,matrix_dt,terms_dt, query):
+    result_docs = []
+    for term in terms:
+        result_docs = result_docs + np.where(matrix_dt[:,term]>0)[0].tolist()
+    return set(result_docs)
+
+def tokenize_stopwords_stemmer(text, stemmer, query):
     no_punctuation = text.translate(None, string.punctuation)
     tokens = nltk.word_tokenize(no_punctuation)
     text_filter = [w for w in tokens if not w in stopwords.words('english')]
     text_final = ''
+    
+    if query == True:
+        for k in range(0, len(text_filter)):
+            for i in wn.synsets(text_filter[k]):
+                for s in i.lemma_names():
+                    text_filter.append(s)
+
     for k in range(0, len(text_filter)):
         text_final +=str(stemmer.stem(text_filter[k]))
         if k != len(text_filter)-1:
@@ -42,7 +70,7 @@ def organizes_documents():
     for i in range(0,len(files)):
         text = files[i].replace('.W', '')
         text = text.replace(str(i), '')
-        text_trans.append(tokenize_stopwords_stemmer(text.lower(), stemmer))
+        text_trans.append(tokenize_stopwords_stemmer(text.lower(), stemmer, False))
     generate_matrix()
 
 def save_object(obj, filename):
@@ -55,6 +83,7 @@ def load_object(filename):
 
 def generate_matrix():
     document_term = CountVectorizer()
+    #document_term = TfidfVectorizer()
     matrix_document_term = document_term.fit_transform(text_trans)
     save_object(document_term.get_feature_names(), 'terms.dt')
     matrix_dt = np.matrix(matrix_document_term.toarray())
@@ -66,15 +95,18 @@ def generate_matrix():
 def search_expanded(query, terms_dt, matrix_tt):
     terms = []
     for i in query:
-        if i in terms_dt:
+        if i in terms_dt:#se botar nada a ver
             key = terms_dt.index(i)
             terms_recommended = np.sort(matrix_tt[key])[:, len(matrix_tt)-expansion:len(matrix_tt)]
             for j in terms_recommended.tolist()[0]:
+                terms
                 terms.append(matrix_tt[key, :].tolist()[0].index(j))
             pass
+            if key in terms == False or expansion == 0:
+                terms.append(key)
         pass
     pass
-    return terms
+    return set(terms)
 
 def relevants_documents():
     relevants_resume = dict()
@@ -96,19 +128,33 @@ def main():
     matrix_dt = load_object('objects/matrix.dt')
     matrix_tt = load_object('objects/matrix.tt')
     terms_dt = load_object('objects/terms.dt')
-    
-    for i in xrange(0,len(querys)):
-        query_token = tokenize_stopwords_stemmer(querys[i], stemmer)
-        terms = search_expanded(query_token.split(' '), terms_dt, matrix_tt)
-        documents_retrieval = retrieval(terms, matrix_dt)
+
+    amount_documents = len(matrix_dt)
+    mean_precision = 0
+    mean_recall = 0
+    mean_acuracy = 0
+    for i in xrange(0, len(querys)):
+        query_token = tokenize_stopwords_stemmer(querys[i], stemmer, True)
+        terms = search_expanded(set(query_token.split(' ')), terms_dt, matrix_tt)
+        documents_retrieval = retrieval(terms, matrix_dt, terms_dt, query_token.split(' '))
         documents_relevants = relevants_documents()[i+1]
+        
         precision = float(len(documents_retrieval.intersection(documents_relevants))) /  float(len(documents_retrieval))
         recall = float(len(documents_retrieval.intersection(documents_relevants))) / float(len(documents_relevants))
-        print "Query: " + str(i+1)
-        print "Precision: " + str(round(precision, 2)*100)
-        print "Recall: " + str(round(recall, 2)*100)
-        print "############################################"
+        acuracy = float(len(documents_retrieval.intersection(documents_relevants)) + amount_documents - len(documents_retrieval))/float(amount_documents)
+        
+        print len(documents_retrieval)
+        print len(documents_relevants)
+        print len(documents_retrieval.intersection(documents_relevants))
+        print '#############'
+        
+        mean_precision = mean_precision  + precision
+        mean_recall = mean_recall + recall
+        mean_acuracy = mean_acuracy + acuracy
         pass
+    
     pass
-
+    print "Precision: " + str(round(mean_precision/len(querys),2))
+    print "Recall: " + str(round(mean_recall/len(querys),2))
+    print "Acuracy: " + str(round(mean_acuracy/len(querys),2))
 main()
